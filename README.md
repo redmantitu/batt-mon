@@ -1,5 +1,7 @@
 # Screen On Time
 
+![Screen On Time](docs/hero.png)
+
 A tiny macOS menu bar app that shows how long your screen has been on **since you unplugged** your Mac. It is hidden while plugged in.
 
 - Battery percentage at the moment you unplugged, current level, and how much you've used
