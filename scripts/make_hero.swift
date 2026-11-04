@@ -1,14 +1,16 @@
 // Composes a product-style hero image from a raw screenshot of the panel.
-// Usage: swiftc -O scripts/make_hero.swift -o /tmp/make_hero && /tmp/make_hero in.png out.png
+// Usage: swiftc -O scripts/make_hero.swift -o /tmp/make_hero && /tmp/make_hero panel.png menubar.png out.png
 import AppKit
 
 let args = CommandLine.arguments
-guard args.count == 3, let src = NSImage(contentsOfFile: args[1]),
-      let srcCG = src.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-    print("usage: make_hero <in.png> <out.png>"); exit(1)
+guard args.count == 4, let src = NSImage(contentsOfFile: args[1]),
+      let srcCG = src.cgImage(forProposedRect: nil, context: nil, hints: nil),
+      let mb = NSImage(contentsOfFile: args[2]),
+      let mbCG = mb.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    print("usage: make_hero <panel.png> <menubar.png> <out.png>"); exit(1)
 }
 
-let W = 2400, H = 1400
+let W = 2400, H = 1500
 let cs = CGColorSpaceCreateDeviceRGB()
 let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: 0,
                     space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -25,7 +27,7 @@ ctx.drawLinearGradient(bg, start: CGPoint(x: 0, y: H), end: CGPoint(x: W, y: 0),
 
 // Green glow behind the panel
 let panelW = 810.0, panelH = 1044.0
-let px = 1380.0, py = (Double(H) - panelH) / 2
+let px = 1380.0, py = 110.0
 let glow = CGGradient(colorsSpace: cs, colors: [rgb(0.19, 0.84, 0.40, 0.32), rgb(0.19, 0.84, 0.40, 0)] as CFArray, locations: [0, 1])!
 ctx.drawRadialGradient(glow, startCenter: CGPoint(x: px + panelW / 2, y: py + panelH / 2), startRadius: 0,
                        endCenter: CGPoint(x: px + panelW / 2, y: py + panelH / 2), endRadius: 900, options: [])
@@ -48,6 +50,25 @@ ctx.draw(panelImg, in: rect)
 ctx.restoreGState()
 ctx.addPath(path); ctx.setStrokeColor(rgb(1, 1, 1, 0.14)); ctx.setLineWidth(2); ctx.strokePath()
 
+// Menu bar strip (top 32px of the capture) above the panel, with a pointer down to the panel
+let mbCrop = CGRect(x: 14, y: 0, width: 214, height: 32)
+let strip = mbCG.cropping(to: mbCrop)!
+let stripW = panelW, stripH = panelW * 32.0 / 214.0
+let stripRect = CGRect(x: px, y: 1250, width: stripW, height: stripH)
+let sPath = CGPath(roundedRect: stripRect, cornerWidth: 22, cornerHeight: 22, transform: nil)
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 0, height: -24), blur: 60, color: rgb(0, 0, 0, 0.6))
+ctx.addPath(sPath); ctx.setFillColor(rgb(0.1, 0.1, 0.1)); ctx.fillPath()
+ctx.restoreGState()
+ctx.saveGState(); ctx.addPath(sPath); ctx.clip(); ctx.draw(strip, in: stripRect); ctx.restoreGState()
+ctx.addPath(sPath); ctx.setStrokeColor(rgb(1, 1, 1, 0.18)); ctx.setLineWidth(2); ctx.strokePath()
+// pointer from the "4m" item down to the panel
+let tipX = px + stripW * ((80.4 - 14.0) / 214.0)
+ctx.setStrokeColor(rgb(0.19, 0.84, 0.40, 0.9)); ctx.setLineWidth(3)
+ctx.move(to: CGPoint(x: tipX, y: stripRect.minY - 8)); ctx.addLine(to: CGPoint(x: tipX, y: py + panelH + 18)); ctx.strokePath()
+ctx.setFillColor(rgb(0.19, 0.84, 0.40, 1))
+ctx.fillEllipse(in: CGRect(x: tipX - 7, y: py + panelH + 12, width: 14, height: 14))
+
 // Text
 func rounded(_ size: CGFloat, _ weight: NSFont.Weight) -> NSFont {
     let base = NSFont.systemFont(ofSize: size, weight: weight)
@@ -58,22 +79,22 @@ func draw(_ s: String, _ font: NSFont, _ color: NSColor, at p: CGPoint, kern: CG
     NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color, .kern: kern]).draw(at: p)
 }
 let green = NSColor(red: 0.19, green: 0.84, blue: 0.40, alpha: 1)
-draw("MENU BAR UTILITY FOR MACOS", rounded(30, .bold), green, at: CGPoint(x: 170, y: 930), kern: 5)
-draw("Screen On Time", rounded(150, .bold), .white, at: CGPoint(x: 160, y: 740))
-draw("See exactly how long your screen has been", rounded(50, .regular), NSColor(white: 1, alpha: 0.65), at: CGPoint(x: 170, y: 640))
-draw("on since you unplugged.", rounded(50, .regular), NSColor(white: 1, alpha: 0.65), at: CGPoint(x: 170, y: 575))
+draw("MENU BAR UTILITY FOR MACOS", rounded(30, .bold), green, at: CGPoint(x: 170, y: 980), kern: 5)
+draw("Screen On Time", rounded(150, .bold), .white, at: CGPoint(x: 160, y: 790))
+draw("See exactly how long your screen has been", rounded(50, .regular), NSColor(white: 1, alpha: 0.65), at: CGPoint(x: 170, y: 690))
+draw("on since you unplugged.", rounded(50, .regular), NSColor(white: 1, alpha: 0.65), at: CGPoint(x: 170, y: 625))
 
 let bullets = ["Appears only on battery power", "Battery level at unplug, now and used",
                "Pauses while the screen sleeps", "No network access. No tracking."]
 for (i, b) in bullets.enumerated() {
-    let y = 430.0 - Double(i) * 78
+    let y = 480.0 - Double(i) * 78
     ctx.setFillColor(green.cgColor)
     ctx.fillEllipse(in: CGRect(x: 175, y: y + 12, width: 18, height: 18))
     draw(b, rounded(38, .medium), NSColor(white: 1, alpha: 0.88), at: CGPoint(x: 220, y: y))
 }
 draw("brew install --cask redmantitu/tap/screen-on-time", NSFont.monospacedSystemFont(ofSize: 30, weight: .medium),
-     NSColor(white: 1, alpha: 0.55), at: CGPoint(x: 172, y: 95))
+     NSColor(white: 1, alpha: 0.55), at: CGPoint(x: 172, y: 145))
 
 let out = NSBitmapImageRep(cgImage: ctx.makeImage()!)
-try! out.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: args[2]))
-print("wrote \(args[2])")
+try! out.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: args[3]))
+print("wrote \(args[3])")
