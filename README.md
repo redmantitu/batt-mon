@@ -15,3 +15,15 @@ scripts/build.sh --install  # also copies to /Applications and launches
 ```
 
 Requires macOS 13+ and the Xcode command line tools.
+
+## Install with Homebrew
+
+```bash
+brew install --cask redmantitu/tap/screen-on-time
+```
+
+The app is ad-hoc signed (not notarized); the cask clears the quarantine flag on install.
+
+## License
+
+MIT
